@@ -1,7 +1,7 @@
 # Terminal Chess Simulator
 
 ## Description
-A two‑player terminal-based chess simulator written in C++ using object‑oriented design. This is not a chess engine—moves are validated and enforced by your implementation of the rules, but there is no AI opponent.
+A two‑player terminal-based chess simulator written in C++ using object‑oriented design. This is not a chess engine- just moves are validated and enforced by the rules, but there is no AI opponent.
 
 ## Overview
 The core design centers on an abstract base class `Pieces`, which declares:
@@ -73,3 +73,11 @@ Additionally, the code uses:
    ```bash
    git clone https://github.com/ParthSorathiya1210/Chess_Simulation.git
    cd Chess_Simulation
+
+2. **Compile**
+    ```bash
+    g++ -std=c++17 Chess_Simulation.cpp -o chess
+    
+3. **Run the simulator**
+   ```bash
+    ./chess
