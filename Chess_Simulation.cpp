@@ -23,7 +23,7 @@ using namespace std;
 
 class Pieces
 {
-public:
+protected:
     int name;    // -1 represents the blank place.
     bool colour; // white -  0 // black - 1
     bool alive;
@@ -31,6 +31,7 @@ public:
     bool is_last_square_move = false;
     pair<int, int> position;
 
+public:
     Pieces(int name, bool colour, pair<int, int> position)
     {
         alive = 1;
@@ -40,13 +41,46 @@ public:
         is_first_move = true;
     }
 
-    virtual bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) { return false; }
-    virtual void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) { return; }
-    virtual bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) { return false; }
-    virtual Pieces *clone() const
+    int getName()
     {
-        return new Pieces(name, colour, position);
+        return name;
     }
+
+    int getColour()
+    {
+        return colour;
+    }
+
+    pair<int, int> getPosition()
+    {
+        return position;
+    }
+
+    bool isAlive()
+    {
+        return alive;
+    }
+
+    void Kill()
+    {
+        alive = false;
+    }
+
+    bool isFirstMove()
+    {
+        return is_first_move;
+    }
+
+    bool isLastSquareMove()
+    {
+        return is_last_square_move;
+    }
+
+    virtual bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) = 0;
+    virtual bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) = 0;
+    virtual void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) = 0;
+    // const functions can not change the variables of the object except the varible itself is mutable like mutable int a;
+    virtual Pieces *clone() const = 0;
 
     static bool check_boundry(pair<int, int> new_position)
     {
@@ -89,6 +123,35 @@ public:
             return {"blank", 0};
     }
 
+    static vector<vector<Pieces *>> deepCopyBoard(vector<vector<Pieces *>> &originalBoard)
+    {
+        int rows = originalBoard.size();
+        int cols = originalBoard[0].size();
+
+        vector<vector<Pieces *>> newBoard(rows, vector<Pieces *>(cols));
+
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                newBoard[i][j] = originalBoard[i][j]->clone();
+            }
+        }
+
+        return newBoard;
+    }
+
+    static void deleteBoard(vector<vector<Pieces *>> &board)
+    {
+        for (auto &row : board)
+        {
+            for (Pieces *piece : row)
+            {
+                delete piece;
+            }
+        }
+    }
+
 protected:
     static void handleEnPesantFalse(vector<vector<Pieces *>> &chessBoard)
     {
@@ -102,19 +165,54 @@ protected:
     }
 };
 
+class Blank : public Pieces
+{
+public:
+    Blank(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position) {}
+
+    virtual Pieces *clone() const override
+    {
+        Blank *newCopy = new Blank(name, colour, position);
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
+        return newCopy;
+    }
+
+    bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        return false;
+    }
+
+private:
+    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        return true;
+    }
+
+    void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        return;
+    }
+};
+
 class King : public Pieces
 {
 public:
     King(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position) {}
 
-    virtual Pieces *clone() const override
+    King *clone() const override
     {
         King *newCopy = new King(name, colour, position);
-        newCopy -> alive = alive;
-        newCopy -> is_first_move = is_first_move;
-        newCopy -> is_last_square_move = is_last_square_move;
-
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
         return newCopy;
+    }
+
+    bool is_check(vector<vector<Pieces *>> &chessBoard)
+    {
+        return is_check(chessBoard, position);
     }
 
     bool is_check(vector<vector<Pieces *>> &chessBoard, pair<int, int> position)
@@ -139,11 +237,11 @@ public:
             int j = i;
             if (!top_right && !check_boundry({curr_X + i, curr_Y + j}))
             {
-                if (chessBoard[curr_X + i][curr_Y + j]->name != -1)
+                if (chessBoard[curr_X + i][curr_Y + j]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X + i][curr_Y + j]->colour)
+                    if (colour != chessBoard[curr_X + i][curr_Y + j]->getColour())
                     {
-                        int new_name = chessBoard[curr_X + i][curr_Y + j]->name;
+                        int new_name = chessBoard[curr_X + i][curr_Y + j]->getName();
                         if (new_name == 12 || new_name == 13 || new_name == 28 || new_name == 29 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -158,11 +256,11 @@ public:
 
             if (!top_left && !check_boundry({curr_X - i, curr_Y + j}))
             {
-                if (chessBoard[curr_X - i][curr_Y + j]->name != -1)
+                if (chessBoard[curr_X - i][curr_Y + j]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X - i][curr_Y + j]->colour)
+                    if (colour != chessBoard[curr_X - i][curr_Y + j]->getColour())
                     {
-                        int new_name = chessBoard[curr_X - i][curr_Y + j]->name;
+                        int new_name = chessBoard[curr_X - i][curr_Y + j]->getName();
                         if (new_name == 12 || new_name == 13 || new_name == 28 || new_name == 29 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -177,11 +275,11 @@ public:
 
             if (!bottom_right && !check_boundry({curr_X + i, curr_Y - j}))
             {
-                if (chessBoard[curr_X + i][curr_Y - j]->name != -1)
+                if (chessBoard[curr_X + i][curr_Y - j]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X + i][curr_Y - j]->colour)
+                    if (colour != chessBoard[curr_X + i][curr_Y - j]->getColour())
                     {
-                        int new_name = chessBoard[curr_X + i][curr_Y - j]->name;
+                        int new_name = chessBoard[curr_X + i][curr_Y - j]->getName();
                         if (new_name == 12 || new_name == 13 || new_name == 28 || new_name == 29 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -196,11 +294,11 @@ public:
 
             if (!bottom_left && !check_boundry({curr_X - i, curr_Y - j}))
             {
-                if (chessBoard[curr_X - i][curr_Y - j]->name != -1)
+                if (chessBoard[curr_X - i][curr_Y - j]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X - i][curr_Y - j]->colour)
+                    if (colour != chessBoard[curr_X - i][curr_Y - j]->getColour())
                     {
-                        int new_name = chessBoard[curr_X - i][curr_Y - j]->name;
+                        int new_name = chessBoard[curr_X - i][curr_Y - j]->getName();
                         if (new_name == 12 || new_name == 13 || new_name == 28 || new_name == 29 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -215,11 +313,11 @@ public:
 
             if (!Right && !check_boundry({curr_X + i, curr_Y}))
             {
-                if (chessBoard[curr_X + i][curr_Y]->name != -1)
+                if (chessBoard[curr_X + i][curr_Y]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X + i][curr_Y]->colour)
+                    if (colour != chessBoard[curr_X + i][curr_Y]->getColour())
                     {
-                        int new_name = chessBoard[curr_X + i][curr_Y]->name;
+                        int new_name = chessBoard[curr_X + i][curr_Y]->getName();
                         if (new_name == 8 || new_name == 9 || new_name == 24 || new_name == 25 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -234,11 +332,11 @@ public:
 
             if (!Left && !check_boundry({curr_X - i, curr_Y}))
             {
-                if (chessBoard[curr_X - i][curr_Y]->name != -1)
+                if (chessBoard[curr_X - i][curr_Y]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X - i][curr_Y]->colour)
+                    if (colour != chessBoard[curr_X - i][curr_Y]->getColour())
                     {
-                        int new_name = chessBoard[curr_X - i][curr_Y]->name;
+                        int new_name = chessBoard[curr_X - i][curr_Y]->getName();
                         if (new_name == 8 || new_name == 9 || new_name == 24 || new_name == 25 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -253,11 +351,11 @@ public:
 
             if (!Top && !check_boundry({curr_X, curr_Y + i}))
             {
-                if (chessBoard[curr_X][curr_Y + i]->name != -1)
+                if (chessBoard[curr_X][curr_Y + i]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X][curr_Y + i]->colour)
+                    if (colour != chessBoard[curr_X][curr_Y + i]->getColour())
                     {
-                        int new_name = chessBoard[curr_X][curr_Y + i]->name;
+                        int new_name = chessBoard[curr_X][curr_Y + i]->getName();
                         if (new_name == 8 || new_name == 9 || new_name == 24 || new_name == 25 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -272,11 +370,11 @@ public:
 
             if (!Bottom && !check_boundry({curr_X, curr_Y - i}))
             {
-                if (chessBoard[curr_X][curr_Y - i]->name != -1)
+                if (chessBoard[curr_X][curr_Y - i]->getName() != -1)
                 {
-                    if (colour != chessBoard[curr_X][curr_Y - i]->colour)
+                    if (colour != chessBoard[curr_X][curr_Y - i]->getColour())
                     {
-                        int new_name = chessBoard[curr_X][curr_Y - i]->name;
+                        int new_name = chessBoard[curr_X][curr_Y - i]->getName();
                         if (new_name == 8 || new_name == 9 || new_name == 24 || new_name == 25 || new_name == 31 || new_name == 14)
                         {
                             return true;
@@ -294,12 +392,12 @@ public:
         bool pawn_threat = false;
         if (colour == 0)
         {
-            if ((!check_boundry({curr_X + 1, curr_Y + 1}) && (chessBoard[curr_X + 1][curr_Y + 1]->name >= 16 && chessBoard[curr_X + 1][curr_Y + 1]->name <= 23)) || (!check_boundry({curr_X + 1, curr_Y - 1}) && (chessBoard[curr_X + 1][curr_Y - 1]->name >= 16 && chessBoard[curr_X + 1][curr_Y - 1]->name <= 23)))
+            if ((!check_boundry({curr_X + 1, curr_Y + 1}) && (chessBoard[curr_X + 1][curr_Y + 1]->getName() >= 16 && chessBoard[curr_X + 1][curr_Y + 1]->getName() <= 23)) || (!check_boundry({curr_X + 1, curr_Y - 1}) && (chessBoard[curr_X + 1][curr_Y - 1]->getName() >= 16 && chessBoard[curr_X + 1][curr_Y - 1]->getName() <= 23)))
                 pawn_threat = true;
         }
         else
         {
-            if ((!check_boundry({curr_X - 1, curr_Y - 1}) && (chessBoard[curr_X - 1][curr_Y - 1]->name >= 0 && chessBoard[curr_X - 1][curr_Y - 1]->name <= 7)) || (!check_boundry({curr_X - 1, curr_Y + 1}) && (chessBoard[curr_X - 1][curr_Y + 1]->name >= 0 && chessBoard[curr_X - 1][curr_Y + 1]->name <= 7)))
+            if ((!check_boundry({curr_X - 1, curr_Y - 1}) && (chessBoard[curr_X - 1][curr_Y - 1]->getName() >= 0 && chessBoard[curr_X - 1][curr_Y - 1]->getName() <= 7)) || (!check_boundry({curr_X - 1, curr_Y + 1}) && (chessBoard[curr_X - 1][curr_Y + 1]->getName() >= 0 && chessBoard[curr_X - 1][curr_Y + 1]->getName() <= 7)))
                 pawn_threat = true;
         }
         if (pawn_threat)
@@ -316,8 +414,8 @@ public:
         {
             if (!check_boundry({curr_X + row[i], curr_Y + col[i]}))
             {
-                int new_name = chessBoard[curr_X + row[i]][curr_Y + col[i]]->name;
-                if (!knight_threat && new_name != -1 && colour != chessBoard[curr_X + row[i]][curr_Y + col[i]]->colour && (new_name == 10 || new_name == 11 || new_name == 26 || new_name == 27))
+                int new_name = chessBoard[curr_X + row[i]][curr_Y + col[i]]->getName();
+                if (!knight_threat && new_name != -1 && colour != chessBoard[curr_X + row[i]][curr_Y + col[i]]->getColour() && (new_name == 10 || new_name == 11 || new_name == 26 || new_name == 27))
                     knight_threat = true;
             }
         }
@@ -328,85 +426,106 @@ public:
         return false;
     }
 
+    bool is_checkmate(vector<vector<Pieces *>> &chessBoard)
+    {
+        for (int i = 0; i < Size; i++)
+        {
+            for (int j = 0; j < Size; j++)
+            {
+                if (chessBoard[i][j]->getColour() == colour)
+                {
+                    for (int k = 0; k < Size; k++)
+                    {
+                        for (int l = 0; l < Size; l++)
+                        {
+                            if (i == k && l == j)
+                                continue;
+                            vector<vector<Pieces *>> copyBoard = deepCopyBoard(chessBoard);
+                            if (copyBoard[i][j]->is_valid_move({k, l}, copyBoard))
+                            {
+                                pair<int, int> newPos = position;
+                                if (which_piece(copyBoard[k][l]->getName()).first == "King")
+                                {
+                                    newPos.first = k;
+                                    newPos.second = l;
+                                }
+                                if (!is_check(copyBoard, newPos))
+                                {
+                                    deleteBoard(copyBoard);
+                                    return false;
+                                }
+                            }
+                            deleteBoard(copyBoard);
+                        }
+                    }
+                }
+            }
+        }
+
+        // if function not returened yet false then is means that is checkmate hence return true
+        return true;
+    }
+
+    bool is_stalemate(vector<vector<Pieces *>> &chessBoard, bool colour)
+    {
+        if (is_check(chessBoard, position))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < Size; i++)
+        {
+            for (int j = 0; j < Size; j++)
+            {
+                if (chessBoard[i][j]->getColour() == colour)
+                {
+                    for (int k = 0; k < 8; k++)
+                    {
+                        for (int l = 0; l < 8; l++)
+                        {
+                            if (i == k && l == j)
+                                continue;
+                            vector<vector<Pieces *>> copyBoard = deepCopyBoard(chessBoard);
+                            if (copyBoard[i][j]->is_valid_move({k, l}, copyBoard))
+                            {
+                                pair<int, int> newPos = position;
+                                if (which_piece(copyBoard[k][l]->getName()).first == "King")
+                                {
+                                    newPos.first = k;
+                                    newPos.second = l;
+                                }
+                                if (is_check(copyBoard, newPos))
+                                {
+                                    deleteBoard(copyBoard);
+                                    continue;
+                                }
+
+                                deleteBoard(copyBoard);
+                                return false;
+                            }
+                            deleteBoard(copyBoard);
+                        }
+                    }
+                }
+            }
+        }
+
+        // if function not returened yet false then is means that is stalemate hence return true
+        return true;
+    }
+
     bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         int new_X = new_position.first;
         int new_Y = new_position.second;
 
         bool curr_colour = this->colour;
-        if (chessBoard[new_X][new_Y]->name == -1)
+        if (chessBoard[new_X][new_Y]->getName() == -1)
             return false;
-        else if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != colour)
+        else if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != colour)
             return false;
         else
             return true;
-    }
-
-    bool castling_condition(pair<int, int> &new_position, vector<vector<Pieces *>> &chessBoard)
-    {
-        // if it's not kings first move
-        if (is_first_move == false)
-            return false;
-
-        int curr_X = position.first;
-        int curr_Y = position.second;
-
-        int new_X = new_position.first;
-        int new_Y = new_position.second;
-
-        // castling condition  // keep white rook named 9 right side // keep white rook named 8 at left side
-        if (colour == 0 && curr_X == 0 && curr_Y == 4 && abs(new_Y - curr_Y) == 2 && abs(new_X - curr_X) == 0)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = 1; i <= 2; i++)
-                {
-
-                    // if the path has obstacles or in the path there is check then return false
-                    if (chessBoard[curr_X][curr_Y + i]->name != -1 || is_check(chessBoard, position))
-                        return false;
-                }
-                if (chessBoard[curr_X][curr_Y + 3]->name != 9 || chessBoard[curr_X][curr_Y + 3]->is_first_move == false) // if its not rook or not its first move
-                    return false;
-            }
-            else if (new_Y < curr_Y)
-            {
-                for (int i = 1; i <= 3; i++)
-                {
-                    if (chessBoard[curr_X][curr_Y - i]->name != -1 || is_check(chessBoard, position))
-                        return false;
-                }
-                if (chessBoard[curr_X][curr_Y - 4]->name != 8 || chessBoard[curr_X][curr_Y - 4]->is_first_move == false)
-                    return false;
-            }
-            return true;
-        }
-        else if (colour == 1 && curr_Y == 4 && curr_X == 7 && abs(new_Y - curr_Y) == 2 && abs(new_X - curr_X) == 0)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = 1; i <= 2; i++)
-                {
-                    if (chessBoard[curr_X][curr_Y + i]->name != -1 || is_check(chessBoard, position))
-                        return false;
-                }
-                if (chessBoard[curr_X][curr_Y + 3]->name != 25 || chessBoard[curr_X][curr_Y + 3]->is_first_move == false)
-                    return false;
-            }
-            else if (new_Y < curr_Y)
-            {
-                for (int i = 1; i <= 3; i++)
-                {
-                    if (chessBoard[curr_X][curr_Y - i]->name != -1 || is_check(chessBoard, position))
-                        return false;
-                }
-                if (chessBoard[curr_X][curr_Y - 4]->name != 24 || chessBoard[curr_X][curr_Y - 4]->is_first_move == false)
-                    return false;
-            }
-            return true;
-        }
-        else
-            return false;
     }
 
     bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
@@ -441,6 +560,74 @@ public:
             return false;
     }
 
+private:
+    bool castling_condition(pair<int, int> &new_position, vector<vector<Pieces *>> &chessBoard)
+    {
+        // if it's not kings first move
+        if (is_first_move == false)
+            return false;
+
+        int curr_X = position.first;
+        int curr_Y = position.second;
+
+        int new_X = new_position.first;
+        int new_Y = new_position.second;
+
+        // castling condition  // keep white rook named 9 right side // keep white rook named 8 at left side
+        if (colour == 0 && curr_X == 0 && curr_Y == 4 && abs(new_Y - curr_Y) == 2 && abs(new_X - curr_X) == 0)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = 1; i <= 2; i++)
+                {
+
+                    // if the path has obstacles or in the path there is check then return false
+                    if (chessBoard[curr_X][curr_Y + i]->getName() != -1 || is_check(chessBoard, position))
+                        return false;
+                }
+                if (chessBoard[curr_X][curr_Y + 3]->getName() != 9 || chessBoard[curr_X][curr_Y + 3]->isFirstMove() == false) // if its not rook or not its first move
+                    return false;
+            }
+            else if (new_Y < curr_Y)
+            {
+                for (int i = 1; i <= 3; i++)
+                {
+                    if (chessBoard[curr_X][curr_Y - i]->getName() != -1 || is_check(chessBoard, position))
+                        return false;
+                }
+                if (chessBoard[curr_X][curr_Y - 4]->getName() != 8 || chessBoard[curr_X][curr_Y - 4]->isFirstMove() == false)
+                    return false;
+            }
+            return true;
+        }
+        else if (colour == 1 && curr_Y == 4 && curr_X == 7 && abs(new_Y - curr_Y) == 2 && abs(new_X - curr_X) == 0)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = 1; i <= 2; i++)
+                {
+                    if (chessBoard[curr_X][curr_Y + i]->getName() != -1 || is_check(chessBoard, position))
+                        return false;
+                }
+                if (chessBoard[curr_X][curr_Y + 3]->getName() != 25 || chessBoard[curr_X][curr_Y + 3]->isFirstMove() == false)
+                    return false;
+            }
+            else if (new_Y < curr_Y)
+            {
+                for (int i = 1; i <= 3; i++)
+                {
+                    if (chessBoard[curr_X][curr_Y - i]->getName() != -1 || is_check(chessBoard, position))
+                        return false;
+                }
+                if (chessBoard[curr_X][curr_Y - 4]->getName() != 24 || chessBoard[curr_X][curr_Y - 4]->isFirstMove() == false)
+                    return false;
+            }
+            return true;
+        }
+        else
+            return false;
+    }
+
     void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         handleEnPesantFalse(chessBoard);
@@ -456,11 +643,12 @@ public:
         if (abs(new_Y - curr_Y) == 2) //  must be castling
         {
             Pieces *newPiece = chessBoard[new_X][new_Y];
-            if(newPiece -> name != -1) newPiece -> alive = false;
+            if (newPiece->getName() != -1)
+                newPiece->Kill();
 
             chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
             position = new_position;
-            chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+            chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
 
             Pieces *rook;
             Pieces *newplace;
@@ -469,7 +657,7 @@ public:
                 rook = chessBoard[0][7];
                 newplace = chessBoard[0][5];
                 chessBoard[0][5] = rook;
-                rook->position = {0, 5};
+                rook->getPosition() = {0, 5};
                 chessBoard[0][7] = newplace;
             }
             else if (curr_X == 0 && new_Y == 2)
@@ -477,7 +665,7 @@ public:
                 rook = chessBoard[0][0];
                 newplace = chessBoard[0][3];
                 chessBoard[0][3] = rook;
-                rook->position = {0, 3};
+                rook->getPosition() = {0, 3};
                 chessBoard[0][0] = newplace;
             }
             else if (curr_X == 7 && new_Y == 6)
@@ -485,7 +673,7 @@ public:
                 rook = chessBoard[7][7];
                 newplace = chessBoard[7][5];
                 chessBoard[7][5] = rook;
-                rook->position = {7, 5};
+                rook->getPosition() = {7, 5};
                 chessBoard[7][7] = newplace;
             }
             else if (curr_X == 7 && new_Y == 2)
@@ -493,122 +681,20 @@ public:
                 rook = chessBoard[7][0];
                 newplace = chessBoard[7][3];
                 chessBoard[7][3] = rook;
-                rook->position = {7, 3};
+                rook->getPosition() = {7, 3};
                 chessBoard[7][0] = newplace;
             }
         }
         else
         {
             Pieces *newPiece = chessBoard[new_X][new_Y];
-            if(newPiece -> name != -1) newPiece -> alive = false;
+            if (newPiece->getName() != -1)
+                newPiece->Kill();
 
             chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
             position = new_position;
-            chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+            chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
         }
-    }
-
-    bool is_checkmate(vector<vector<Pieces *>> &chessBoard)
-    {
-        for (int i = 0; i < Size; i++)
-        {
-            for (int j = 0; j < Size; j++)
-            {
-                if (chessBoard[i][j]->colour == colour)
-                {
-                    for (int k = 0; k < Size; k++)
-                    {
-                        for (int l = 0; l < Size; l++)
-                        {
-                            if (i == k && l == j)
-                                continue;
-                            Pieces *p = chessBoard[i][j];
-                            bool is_first_move = p->is_first_move;
-                            bool is_last_square_move = p->is_last_square_move;
-                            Pieces *new_piece = chessBoard[k][l];
-                            // Chess temp2 = temp;
-                            if (chessBoard[i][j]->is_valid_move({k, l}, chessBoard))
-                            {
-                                if (!is_check(chessBoard, position))
-                                {
-                                    chessBoard[i][j] = p;
-                                    p->position = {i, j};
-                                    p->is_first_move = is_first_move;
-                                    p->is_last_square_move = is_last_square_move;
-                                    chessBoard[k][l] = new_piece;
-                                    new_piece->alive = true;
-                                    return false;
-                                }
-
-                                chessBoard[i][j] = p;
-                                p->position = {i, j};
-                                p->is_first_move = is_first_move;
-                                p->is_last_square_move = is_last_square_move;
-                                chessBoard[k][l] = new_piece;
-                                new_piece->alive = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // if function not returened yet false then is means that is checkmate hence return true
-        return true;
-    }
-
-    bool is_stalemate(vector<vector<Pieces *>> &chessBoard, bool colour)
-    {
-        if (is_check(chessBoard, position))
-        {
-            return false;
-        }
-
-        for (int i = 0; i < Size; i++)
-        {
-            for (int j = 0; j < Size; j++)
-            {
-                if (chessBoard[i][j]->colour == colour)
-                {
-                    for (int k = 0; k < 8; k++)
-                    {
-                        for (int l = 0; l < 8; l++)
-                        {
-                            if (i == k && l == j)
-                                continue;
-                            Pieces *p = chessBoard[i][j];
-                            bool is_first_move = p->is_first_move;
-                            bool is_last_square_move = p->is_last_square_move;
-                            Pieces *new_piece = chessBoard[k][l];
-                            if (chessBoard[i][j]->is_valid_move({k, l}, chessBoard))
-                            {
-                                if (is_check(chessBoard, position))
-                                {
-                                    chessBoard[i][j] = p;
-                                    p->position = {i, j};
-                                    p->is_first_move = is_first_move;
-                                    p->is_last_square_move = is_last_square_move;
-                                    chessBoard[k][l] = new_piece;
-                                    new_piece->alive = true;
-                                    continue;
-                                }
-
-                                chessBoard[i][j] = p;
-                                p->position = {i, j};
-                                p->is_first_move = is_first_move;
-                                p->is_last_square_move = is_last_square_move;
-                                chessBoard[k][l] = new_piece;
-                                new_piece->alive = true;
-                                return false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // if function not returened yet false then is means that is stalemate hence return true
-        return true;
     }
 };
 
@@ -617,69 +703,14 @@ class Rook : public Pieces
 public:
     Rook(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position) {}
 
-    virtual Pieces *clone() const override
+    Rook *clone() const override
     {
         Rook *newCopy = new Rook(name, colour, position);
-        newCopy -> alive = alive;
-        newCopy -> is_first_move = is_first_move;
-        newCopy -> is_last_square_move = is_last_square_move;
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
 
         return newCopy;
-    }
-
-    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
-    {
-        int curr_X = position.first;
-        int curr_Y = position.second;
-
-        int new_X = new_position.first;
-        int new_Y = new_position.second;
-
-        if (new_X == curr_X)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = curr_Y + 1; i < new_Y; i++)
-                {
-                    if (chessBoard[curr_X][i]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = curr_Y - 1; i > new_Y; i--)
-                {
-                    if (chessBoard[curr_X][i]->name != -1)
-                        return true;
-                }
-            }
-        }
-        else if (new_Y == curr_Y)
-        {
-            if (new_X > curr_X)
-            {
-                for (int i = curr_X + 1; i < new_X; i++)
-                {
-                    if (chessBoard[i][curr_Y]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = curr_X - 1; i > new_X; i--)
-                {
-                    if (chessBoard[i][curr_Y]->name != -1)
-                        return true;
-                }
-            }
-        }
-
-        if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != colour)
-            return false;
-        else if (chessBoard[new_X][new_Y]->name != -1)
-            return true;
-        else
-            return false;
     }
 
     bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
@@ -708,6 +739,63 @@ public:
             }
         }
     }
+
+private:
+    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        int curr_X = position.first;
+        int curr_Y = position.second;
+
+        int new_X = new_position.first;
+        int new_Y = new_position.second;
+
+        if (new_X == curr_X)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = curr_Y + 1; i < new_Y; i++)
+                {
+                    if (chessBoard[curr_X][i]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = curr_Y - 1; i > new_Y; i--)
+                {
+                    if (chessBoard[curr_X][i]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+        else if (new_Y == curr_Y)
+        {
+            if (new_X > curr_X)
+            {
+                for (int i = curr_X + 1; i < new_X; i++)
+                {
+                    if (chessBoard[i][curr_Y]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = curr_X - 1; i > new_X; i--)
+                {
+                    if (chessBoard[i][curr_Y]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+
+        if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != colour)
+            return false;
+        else if (chessBoard[new_X][new_Y]->getName() != -1)
+            return true;
+        else
+            return false;
+    }
+
     void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         handleEnPesantFalse(chessBoard);
@@ -720,10 +808,11 @@ public:
         int new_Y = new_position.second;
 
         Pieces *newPiece = chessBoard[new_X][new_Y];
-        if(newPiece -> name != -1) newPiece -> alive = false;
+        if (newPiece->getName() != -1)
+            newPiece->Kill();
         chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
         position = new_position;
-        chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+        chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
     }
 };
 
@@ -732,71 +821,14 @@ class Bishop : public Pieces
 public:
     Bishop(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position) {}
 
-    virtual Pieces *clone() const override
+    Bishop *clone() const override
     {
         Bishop *newCopy = new Bishop(name, colour, position);
-        newCopy -> alive = alive;
-        newCopy -> is_first_move = is_first_move;
-        newCopy -> is_last_square_move = is_last_square_move;
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
 
         return newCopy;
-    }
-
-    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
-    {
-        int curr_X = position.first;
-        int curr_Y = position.second;
-
-        int new_X = new_position.first;
-        int new_Y = new_position.second;
-
-        int diff = abs(new_X - curr_X);
-
-        if (new_X > curr_X)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X + i][curr_Y + i]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X + i][curr_Y - i]->name != -1)
-                        return true;
-                }
-            }
-        }
-        else if (new_X < curr_X)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X - i][curr_Y + i]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X - i][curr_Y - i]->name != -1)
-                        return true;
-                }
-            }
-        }
-
-        if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour)
-            return false;
-        else if (chessBoard[new_X][new_Y]->name != -1)
-            return true;
-        else
-            return false;
     }
 
     bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
@@ -823,6 +855,65 @@ public:
             }
         }
     }
+
+private:
+    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        int curr_X = position.first;
+        int curr_Y = position.second;
+
+        int new_X = new_position.first;
+        int new_Y = new_position.second;
+
+        int diff = abs(new_X - curr_X);
+
+        if (new_X > curr_X)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X + i][curr_Y + i]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X + i][curr_Y - i]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+        else if (new_X < curr_X)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X - i][curr_Y + i]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X - i][curr_Y - i]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+
+        if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != chessBoard[curr_X][curr_Y]->getColour())
+            return false;
+        else if (chessBoard[new_X][new_Y]->getName() != -1)
+            return true;
+        else
+            return false;
+    }
+
     void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         handleEnPesantFalse(chessBoard);
@@ -833,11 +924,12 @@ public:
         int new_Y = new_position.second;
 
         Pieces *newPiece = chessBoard[new_X][new_Y];
-        if(newPiece -> name != -1) newPiece -> alive = false;
+        if (newPiece->getName() != -1)
+            newPiece->Kill();
 
         chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
         position = new_position;
-        chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+        chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
     }
 };
 
@@ -846,30 +938,14 @@ class Knight : public Pieces
 public:
     Knight(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position) {}
 
-    virtual Pieces *clone() const override
+    Knight *clone() const override
     {
         Knight *newCopy = new Knight(name, colour, position);
-        newCopy -> alive = alive;
-        newCopy -> is_first_move = is_first_move;
-        newCopy -> is_last_square_move = is_last_square_move;
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
 
         return newCopy;
-    }
-
-    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
-    {
-        int curr_X = position.first;
-        int curr_Y = position.second;
-
-        int new_X = new_position.first;
-        int new_Y = new_position.second;
-
-        if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour)
-            return false;
-        else if (chessBoard[new_X][new_Y]->name != -1)
-            return true;
-        else
-            return false;
     }
 
     bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
@@ -903,6 +979,24 @@ public:
         }
         return false;
     }
+
+private:
+    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        int curr_X = position.first;
+        int curr_Y = position.second;
+
+        int new_X = new_position.first;
+        int new_Y = new_position.second;
+
+        if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != chessBoard[curr_X][curr_Y]->getColour())
+            return false;
+        else if (chessBoard[new_X][new_Y]->getName() != -1)
+            return true;
+        else
+            return false;
+    }
+
     void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         handleEnPesantFalse(chessBoard);
@@ -913,11 +1007,12 @@ public:
         int new_Y = new_position.second;
 
         Pieces *newPiece = chessBoard[new_X][new_Y];
-        if(newPiece -> name != -1) newPiece -> alive = false;
+        if (newPiece->getName() != -1)
+            newPiece->Kill();
 
         chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
         position = new_position;
-        chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+        chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
     }
 };
 
@@ -926,109 +1021,14 @@ class Queen : public Pieces
 public:
     Queen(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position) {}
 
-    virtual Pieces *clone() const override
+    Queen *clone() const override
     {
         Queen *newCopy = new Queen(name, colour, position);
-        newCopy -> alive = alive;
-        newCopy -> is_first_move = is_first_move;
-        newCopy -> is_last_square_move = is_last_square_move;
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
 
         return newCopy;
-    }
-
-    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
-    {
-        int curr_X = position.first;
-        int curr_Y = position.second;
-
-        int new_X = new_position.first;
-        int new_Y = new_position.second;
-
-        int diff = abs(new_X - curr_X);
-
-        if (new_X == curr_X)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = curr_Y + 1; i < new_Y; i++)
-                {
-                    if (chessBoard[curr_X][i]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = curr_Y - 1; i > new_Y; i--)
-                {
-                    if (chessBoard[curr_X][i]->name != -1)
-                        return true;
-                }
-            }
-        }
-        else if (new_Y == curr_Y)
-        {
-            if (new_X > curr_X)
-            {
-                for (int i = curr_X + 1; i < new_X; i++)
-                {
-                    if (chessBoard[i][curr_Y]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = curr_X - 1; i > new_X; i--)
-                {
-                    if (chessBoard[i][curr_Y]->name != -1)
-                        return true;
-                }
-            }
-        }
-        else if (new_X > curr_X)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X + i][curr_Y + i]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X + i][curr_Y - i]->name != -1)
-                        return true;
-                }
-            }
-        }
-        else if (new_X < curr_X)
-        {
-            if (new_Y > curr_Y)
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X - i][curr_Y + i]->name != -1)
-                        return true;
-                }
-            }
-            else
-            {
-                for (int i = 1; i < diff; i++)
-                {
-                    if (chessBoard[curr_X - i][curr_Y - i]->name != -1)
-                        return true;
-                }
-            }
-        }
-
-        if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour)
-            return false;
-        else if (chessBoard[new_X][new_Y]->name != -1)
-            return true;
-        else
-            return false;
     }
 
     bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
@@ -1057,6 +1057,103 @@ public:
         else
             return false;
     }
+
+private:
+    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        int curr_X = position.first;
+        int curr_Y = position.second;
+
+        int new_X = new_position.first;
+        int new_Y = new_position.second;
+
+        int diff = abs(new_X - curr_X);
+
+        if (new_X == curr_X)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = curr_Y + 1; i < new_Y; i++)
+                {
+                    if (chessBoard[curr_X][i]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = curr_Y - 1; i > new_Y; i--)
+                {
+                    if (chessBoard[curr_X][i]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+        else if (new_Y == curr_Y)
+        {
+            if (new_X > curr_X)
+            {
+                for (int i = curr_X + 1; i < new_X; i++)
+                {
+                    if (chessBoard[i][curr_Y]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = curr_X - 1; i > new_X; i--)
+                {
+                    if (chessBoard[i][curr_Y]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+        else if (new_X > curr_X)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X + i][curr_Y + i]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X + i][curr_Y - i]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+        else if (new_X < curr_X)
+        {
+            if (new_Y > curr_Y)
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X - i][curr_Y + i]->getName() != -1)
+                        return true;
+                }
+            }
+            else
+            {
+                for (int i = 1; i < diff; i++)
+                {
+                    if (chessBoard[curr_X - i][curr_Y - i]->getName() != -1)
+                        return true;
+                }
+            }
+        }
+
+        if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != chessBoard[curr_X][curr_Y]->getColour())
+            return false;
+        else if (chessBoard[new_X][new_Y]->getName() != -1)
+            return true;
+        else
+            return false;
+    }
+
     void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         handleEnPesantFalse(chessBoard);
@@ -1067,92 +1164,34 @@ public:
         int new_Y = new_position.second;
 
         Pieces *newPiece = chessBoard[new_X][new_Y];
-        if(newPiece -> name != -1) newPiece -> alive = false;
+        if (newPiece->getName() != -1)
+            newPiece->Kill();
 
         chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
         position = new_position;
-        chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+        chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
     }
 };
 
 class Pawn : public Pieces
 {
+private:
+    bool isCopy = false;
+
 public:
     Pawn(int name, bool colour, pair<int, int> position) : Pieces(name, colour, position)
     {
         is_last_square_move = false;
     }
 
-    virtual Pieces *clone() const override
+    Pawn *clone() const override
     {
         Pawn *newCopy = new Pawn(name, colour, position);
-        newCopy -> alive = alive;
-        newCopy -> is_first_move = is_first_move;
-        newCopy -> is_last_square_move = is_last_square_move;
-
+        newCopy->alive = alive;
+        newCopy->is_first_move = is_first_move;
+        newCopy->is_last_square_move = is_last_square_move;
+        newCopy->isCopy = true;
         return newCopy;
-    }
-
-    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
-    {
-        int curr_X = position.first;
-        int curr_Y = position.second;
-
-        int new_X = new_position.first;
-        int new_Y = new_position.second;
-
-        // for white
-        if (!colour)
-        {
-            if (new_Y == curr_Y)
-            {
-                if ((new_X - curr_X == 2) && (chessBoard[new_X][new_Y]->name != -1 || chessBoard[new_X - 1][new_Y]->name != -1))
-                    return true;
-                else if (new_X - curr_X == 1 && chessBoard[new_X][new_Y]->name != -1)
-                {
-                    return true;
-                }
-                else
-                    return false;
-            }
-            else if (abs(new_Y - curr_Y) == 1)
-            {
-                if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour)
-                    return true;
-                // else if (chessBoard[new_X - 1][new_Y]->name != -1 && chessBoard[new_X - 1][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour && chessBoard[new_X][new_Y]->name == -1 && chessBoard[new_X - 1][new_Y]->is_last_square_move == 1)
-                // {
-                //     return true;
-                // }
-                else
-                    return false;
-            }
-        }
-        else // for black
-        {
-            if (new_Y == curr_Y)
-            {
-                if (((curr_X - new_X) == 2) && (chessBoard[new_X][new_Y]->name != -1 || chessBoard[new_X + 1][new_Y]->name != -1))
-                    return true;
-                else if (curr_X - new_X == 1 && chessBoard[new_X][new_Y]->name != -1)
-                    return true;
-                else
-                    return false;
-            }
-            else if (abs(new_Y - curr_Y) == 1)
-            {
-                if (chessBoard[new_X][new_Y]->name != -1 && chessBoard[new_X][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour)
-                    return true;
-                // else if (chessBoard[new_X + 1][new_Y]->name != -1 && chessBoard[new_X + 1][new_Y]->colour != chessBoard[curr_X][curr_Y]->colour && chessBoard[new_X][new_Y]->name == -1 && chessBoard[new_X + 1][new_Y]->is_last_square_move == 1)
-                // {
-                //     return true;
-                // }
-                else
-                    return false;
-            }
-        }
-
-        // just to avoid the warning this is not returning false for any reason and we will never reach here..
-        return false;
     }
 
     bool is_valid_move(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
@@ -1185,7 +1224,7 @@ public:
 
                     if (!check_boundry(side_position))
                     {
-                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y + 1]->name);
+                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y + 1]->getName());
                         if (emPesOpp == "Pawn" && emPesOppColour != colour)
                         {
                             is_last_square_move = true;
@@ -1195,7 +1234,7 @@ public:
                     side_position = {new_X, new_Y - 1};
                     if (!check_boundry(side_position))
                     {
-                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y - 1]->name);
+                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y - 1]->getName());
                         if (emPesOpp == "Pawn" && emPesOppColour != colour)
                         {
                             is_last_square_move = true;
@@ -1229,12 +1268,12 @@ public:
                 else
                 {
                     // must be En passant
-                    auto [emPesPeice, emPesColour] = which_piece(chessBoard[curr_X][new_Y]->name);
-                    if (emPesPeice == "Pawn" && emPesColour != colour && chessBoard[curr_X][new_Y]->is_last_square_move == true)
+                    auto [emPesPeice, emPesColour] = which_piece(chessBoard[curr_X][new_Y]->getName());
+                    if (emPesPeice == "Pawn" && emPesColour != colour && chessBoard[curr_X][new_Y]->isLastSquareMove() == true)
                     {
                         Pieces *newPiece = chessBoard[curr_X][new_Y];
-                        newPiece -> alive = false;
-                        chessBoard[curr_X][new_Y] = new Pieces(-1, 0, {-1, -1});
+                        newPiece->Kill();
+                        chessBoard[curr_X][new_Y] = new Blank(-1, 0, {-1, -1});
                         handleEnPesantFalse(chessBoard);
                         move_position(new_position, chessBoard);
                         return true;
@@ -1262,7 +1301,7 @@ public:
 
                     if (!check_boundry(side_position))
                     {
-                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y + 1]->name);
+                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y + 1]->getName());
                         if (emPesOpp == "Pawn" && emPesOppColour != colour)
                         {
                             is_last_square_move = true;
@@ -1272,7 +1311,7 @@ public:
                     side_position = {new_X, new_Y - 1};
                     if (!check_boundry(side_position))
                     {
-                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y - 1]->name);
+                        auto [emPesOpp, emPesOppColour] = which_piece(chessBoard[new_X][new_Y - 1]->getName());
                         if (emPesOpp == "Pawn" && emPesOppColour != colour)
                         {
                             is_last_square_move = true;
@@ -1306,12 +1345,12 @@ public:
                 else
                 {
                     // must be En passant
-                    auto [emPesPeice, emPesColour] = which_piece(chessBoard[curr_X][new_Y]->name);
-                    if (emPesPeice == "Pawn" && emPesColour != colour && chessBoard[curr_X][new_Y]->is_last_square_move == true)
+                    auto [emPesPeice, emPesColour] = which_piece(chessBoard[curr_X][new_Y]->getName());
+                    if (emPesPeice == "Pawn" && emPesColour != colour && chessBoard[curr_X][new_Y]->isLastSquareMove() == true)
                     {
                         Pieces *newPiece = chessBoard[curr_X][new_Y];
-                        newPiece -> alive = false;
-                        chessBoard[curr_X][new_Y] = new Pieces(-1, 0, {-1, -1});
+                        newPiece->Kill();
+                        chessBoard[curr_X][new_Y] = new Blank(-1, 0, {-1, -1});
 
                         handleEnPesantFalse(chessBoard);
                         move_position(new_position, chessBoard);
@@ -1326,6 +1365,61 @@ public:
         }
     }
 
+private:
+    bool check_obstacle(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
+    {
+        int curr_X = position.first;
+        int curr_Y = position.second;
+
+        int new_X = new_position.first;
+        int new_Y = new_position.second;
+
+        // for white
+        if (!colour)
+        {
+            if (new_Y == curr_Y)
+            {
+                if ((new_X - curr_X == 2) && (chessBoard[new_X][new_Y]->getName() != -1 || chessBoard[new_X - 1][new_Y]->getName() != -1))
+                    return true;
+                else if (new_X - curr_X == 1 && chessBoard[new_X][new_Y]->getName() != -1)
+                {
+                    return true;
+                }
+                else
+                    return false;
+            }
+            else if (abs(new_Y - curr_Y) == 1)
+            {
+                if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != chessBoard[curr_X][curr_Y]->getColour())
+                    return true;
+                else
+                    return false;
+            }
+        }
+        else // for black
+        {
+            if (new_Y == curr_Y)
+            {
+                if (((curr_X - new_X) == 2) && (chessBoard[new_X][new_Y]->getName() != -1 || chessBoard[new_X + 1][new_Y]->getName() != -1))
+                    return true;
+                else if (curr_X - new_X == 1 && chessBoard[new_X][new_Y]->getName() != -1)
+                    return true;
+                else
+                    return false;
+            }
+            else if (abs(new_Y - curr_Y) == 1)
+            {
+                if (chessBoard[new_X][new_Y]->getName() != -1 && chessBoard[new_X][new_Y]->getColour() != chessBoard[curr_X][curr_Y]->getColour())
+                    return true;
+                else
+                    return false;
+            }
+        }
+
+        // just to avoid the warning this is not returning false for any reason and we will never reach here..
+        return false;
+    }
+
     void move_position(pair<int, int> new_position, vector<vector<Pieces *>> &chessBoard) override
     {
         int curr_X = position.first;
@@ -1336,13 +1430,14 @@ public:
 
         Pieces *newPiece = chessBoard[new_X][new_Y];
 
-        if(newPiece -> name != -1) newPiece -> alive = false;
+        if (newPiece->getName() != -1)
+            newPiece->Kill();
 
         chessBoard[new_X][new_Y] = chessBoard[curr_X][curr_Y];
         position = new_position;
-        chessBoard[curr_X][curr_Y] = new Pieces(-1, 0, {-1, -1});
+        chessBoard[curr_X][curr_Y] = new Blank(-1, 0, {-1, -1});
 
-        while (((colour == 0 && new_X == 7) || (colour == 1 && new_X == 0)))
+        while (!isCopy && ((colour == 0 && new_X == 7) || (colour == 1 && new_X == 0)))
         {
             cout << "Hurray We have some bonus for you Enter the options which ever you want to upgrade this pawn to : " << endl;
             cout << "Queen Rook Knight Bishop None" << endl;
@@ -1352,25 +1447,25 @@ public:
             if (s == "Queen")
             {
                 int new_name = (colour == 0) ? 14 : 31;
-                chessBoard[new_X][new_Y]->alive = false;
+                chessBoard[new_X][new_Y]->Kill();
                 chessBoard[new_X][new_Y] = new Queen(new_name, colour, position);
             }
             else if (s == "Knight")
             {
                 int new_name = (colour == 0) ? 10 : 26;
-                chessBoard[new_X][new_Y]->alive = false;
+                chessBoard[new_X][new_Y]->Kill();
                 chessBoard[new_X][new_Y] = new Knight(new_name, colour, position);
             }
             else if (s == "Bishop")
             {
                 int new_name = (colour == 0) ? 12 : 28;
-                chessBoard[new_X][new_Y]->alive = false;
+                chessBoard[new_X][new_Y]->Kill();
                 chessBoard[new_X][new_Y] = new Bishop(new_name, colour, position);
             }
             else if (s == "Rook")
             {
                 int new_name = (colour == 0) ? 8 : 24;
-                chessBoard[new_X][new_Y]->alive = false;
+                chessBoard[new_X][new_Y]->Kill();
                 chessBoard[new_X][new_Y] = new Rook(new_name, colour, position);
             }
             else if (s == "None")
@@ -1397,7 +1492,7 @@ private:
 public:
     Chess()
     {
-        chessBoard.resize(8, vector<Pieces *>(8, new Pieces(-1, 0, {-1, -1})));
+        chessBoard.resize(8, vector<Pieces *>(8));
 
         int chessValues[8][8] = {
             {8, 10, 12, 14, 15, 13, 11, 9},   // First row: White's main pieces (Rook, Knight, Bishop, Queen, King, etc.)
@@ -1410,7 +1505,6 @@ public:
             {24, 26, 28, 31, 30, 29, 27, 25}  // Eighth row: Black's main pieces (Rook, Knight, Bishop, Queen, King, etc.)
         };
 
-
         for (int i = 0; i < Size; i++)
         {
             for (int j = 0; j < Size; j++)
@@ -1422,7 +1516,7 @@ public:
 
                 if (Name == "blank")
                 {
-                    chessBoard[i][j] = new Pieces(chessValues[i][j], colour, position);
+                    chessBoard[i][j] = new Blank(chessValues[i][j], colour, position);
                 }
                 else if (Name == "Pawn")
                 {
@@ -1461,35 +1555,6 @@ public:
     }
 
 private:
-    vector<vector<Pieces *>> deepCopyBoard(vector<vector<Pieces *>> &originalBoard)
-    {
-        int rows = originalBoard.size();
-        int cols = originalBoard[0].size();
-
-        vector<vector<Pieces *>> newBoard(rows, vector<Pieces *>(cols, new Pieces(-1, 0, {-1, -1})));
-
-        for (int i = 0; i < rows; i++)
-        {
-            for (int j = 0; j < cols; j++)
-            {
-                newBoard[i][j] = originalBoard[i][j]->clone();
-            }
-        }
-
-        return newBoard;
-    }
-
-    void deleteBoard(vector<vector<Pieces *>> &board)
-    {
-        for (auto &row : board)
-        {
-            for (Pieces *piece : row)
-            {
-                delete piece;
-            }
-        }
-    }
-
     // If we are ending with these cases then the game could not end.
     bool insufficient_material()
     {
@@ -1503,17 +1568,17 @@ private:
             for (int j = 0; j < 8; j++)
             {
                 Pieces *piece = chessBoard[i][j];
-                string pieceName = Pieces::which_piece(piece->name).first;
+                string pieceName = Pieces::which_piece(piece->getName()).first;
 
-                if (piece->name == -1)
+                if (piece->getName() == -1)
                     continue; // Empty square, skip
 
-                if (Pieces::which_piece(piece->name).first == "King")
+                if (Pieces::which_piece(piece->getName()).first == "King")
                 {
                     continue; // Ignore kings
                 }
 
-                if (piece->colour == 0)
+                if (piece->getColour() == 0)
                 { // White pieces
                     white_pieces++;
                     if (pieceName == "Bishop")
@@ -1521,7 +1586,7 @@ private:
                         white_has_bishop = true;
                         white_bishop_color = (i + j) % 2 == 0; // track bishop color (white/black square)
                     }
-                    else if (Pieces::which_piece(piece->name).first == "Knight")
+                    else if (Pieces::which_piece(piece->getName()).first == "Knight")
                     {
                         white_has_knight = true;
                     }
@@ -1583,18 +1648,18 @@ public:
             {
                 Pieces *piece = chessBoard[x][y];
                 cout << "[" << x << " " << y << "]";
-                if (piece->name == -1)
+                if (piece->getName() == -1)
                 {
                     cout << "             |";
                 }
                 else
                 {
                     // Determine the color and type of piece
-                    string color = (piece->colour == 0) ? "White" : "Black";
+                    string color = (piece->getColour() == 0) ? "White" : "Black";
                     string pieceType;
 
                     // Map the name to the piece type
-                    switch (piece->name)
+                    switch (piece->getName())
                     {
                     case 0:
                     case 1:
@@ -1657,7 +1722,7 @@ public:
                         break;
                     }
 
-                    cout << " "<< color << " " << pieceType; // Print the piece with color
+                    cout << " " << color << " " << pieceType; // Print the piece with color
                 }
             }
             cout << endl;
@@ -1668,13 +1733,79 @@ public:
         cout << endl;
     }
 
+    void readSquare(const string &prompt, int &x, int &y)
+    {
+        while (true)
+        {
+            cout << prompt;
+            if (cin >> x >> y)
+            {
+                return;
+            }
+            else
+            {
+                // input failed (e.g. user typed a letter)
+                cout << "Invalid input. Please enter two numbers between 0 and 7.\n";
+                cin.clear(); // clear the failbit
+            }
+            // discard the rest of the line so we can retry cleanly
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
+    }
+
     bool color = 0;
 
     bool turns()
     {
         cout << "Turn " << (color == 0 ? "white" : "black") << endl;
 
-        vector<vector<Pieces *>> copyBoard = deepCopyBoard(chessBoard);
+        // check stalemate
+        if ((color == 0 && white_king->is_stalemate(chessBoard, color)) || (color == 1 && black_king->is_stalemate(chessBoard, color)))
+        {
+            cout << "Draw due to stalemate.....!!";
+            return false;
+        }
+
+        // check checkmate
+        if ((color == 0 && white_king->is_check(chessBoard)) || (color == 1 && black_king->is_check(chessBoard)))
+        {
+            if ((color == 0 && white_king->is_checkmate(chessBoard)) || (color == 1 && black_king->is_checkmate(chessBoard)))
+            {
+                string ans = (color == 1) ? "White" : "Black";
+                cout << "Check Mate...!! " << ans << " is a winner" << endl;
+                return false;
+            }
+            cout << "There is a check" << endl;
+        }
+
+        // check insufficient material
+        if (insufficient_material())
+        {
+            cout << "Draw due to insuffiecient material...!!" << endl;
+            return false;
+        }
+
+        int curr_X, curr_Y;
+
+        int new_X, new_Y;
+
+        readSquare("Please enter the valid piece coordinates (x y): ", curr_X, curr_Y);
+        readSquare("Please enter the valid destination coordinates (x y): ", new_X, new_Y);
+
+        if (Pieces::check_boundry({curr_X, curr_Y}) || chessBoard[curr_X][curr_Y]->getName() == -1 || chessBoard[curr_X][curr_Y]->getColour() != color)
+        {
+            cout << "Invalid starting piece or position." << endl;
+            return true;
+        }
+
+        pair<int, int> new_position = make_pair(new_X, new_Y);
+        if (Pieces::check_boundry(new_position))
+        {
+            cout << "Invalid destination position." << endl;
+            return true;
+        }
+
+        vector<vector<Pieces *>> copyBoard = Pieces::deepCopyBoard(chessBoard);
 
         King *white_copy = nullptr;
         King *black_copy = nullptr;
@@ -1688,137 +1819,35 @@ public:
                 if (auto k = dynamic_cast<King *>(p))
                 {
                     // We found a King; check its color
-                    if (k->colour == 0)
+                    if (k->getColour() == 0)
                         white_copy = k;
-                    else /* k->colour == 1 */
+                    else /* k->getColour() == 1 */
                         black_copy = k;
                 }
             }
         }
 
-        // King *white_copy = new King(white_king->name, white_king->colour, white_king->position);
-        // white_copy->alive = white_king->alive;
-        // white_copy->is_first_move = white_king->is_first_move;
-        // white_copy->is_last_square_move = white_king->is_last_square_move;
-
-        // King *black_copy = new King(black_king->name, black_king->colour, black_king->position);
-        // black_copy->alive = black_king->alive;
-        // black_copy->is_first_move = black_king->is_first_move;
-        // black_copy->is_last_square_move = black_king->is_last_square_move;
-
-        // check stalemate
-        if ((color == 0 && white_copy->is_stalemate(copyBoard, color)) || (color == 1 && black_copy->is_stalemate(copyBoard, color)))
-        {
-            cout << "Draw due to stalemate.....!!";
-            deleteBoard(copyBoard);
-            return false;
-        }
-
-        // check checkmate
-        if ((color == 0 && white_copy->is_check(copyBoard, white_copy->position)) || (color == 1 && black_copy->is_check(copyBoard, black_copy->position)))
-        {
-            if ((color == 0 && white_copy->is_checkmate(copyBoard)) || (color == 1 && black_copy->is_checkmate(copyBoard)))
-            {
-                string ans = (color == 1) ? "white" : "black";
-                cout << "There is a check mate " << ans << " is a winner" << endl;
-                deleteBoard(copyBoard);
-                return false;
-            }
-            cout << "There is a check" << endl;
-        }
-
-        // check insufficient material
-        if (insufficient_material())
-        {
-            // deleteBoard(copyBoard);
-            cout << "Draw due to insuffiecient material...!!" << endl;
-            return false;
-        }
-
-        int curr_X, curr_Y;
-        cout << "Please enter the valid piece : ";
-        cin >> curr_X >> curr_Y;
-
-        int new_X, new_Y;
-        cout << "Please enter the valid place : ";
-        cin >> new_X >> new_Y;
-
-        if (Pieces::check_boundry({curr_X, curr_Y}) || chessBoard[curr_X][curr_Y]->name == -1 || chessBoard[curr_X][curr_Y]->colour != color)
-        {
-            cout << "Invalid starting piece" << endl;
-            deleteBoard(copyBoard);
-            return true;
-        }
-
-        pair<int, int> new_position = make_pair(new_X, new_Y);
-        if (Pieces::check_boundry(new_position))
-        {
-            cout << "Invalid new position" << endl;
-            deleteBoard(copyBoard);
-            return true;
-        }
-
-        deleteBoard(copyBoard);
-        copyBoard = deepCopyBoard(chessBoard);
-
         Pieces *p = copyBoard[curr_X][curr_Y];
-        bool is_first_move = p->is_first_move;
-        bool is_last_square_move = p->is_last_square_move;
-
         Pieces *new_piece = copyBoard[new_X][new_Y];
-        bool is_first_move_new = new_piece->is_first_move;
-        bool is_last_square_move_new = new_piece->is_last_square_move;
-        bool isAlive = new_piece->alive;
-        
+
         if (!(p->is_valid_move(new_position, copyBoard)))
         {
             print_chessboard();
-            cout << "Invalid new place" << endl;
-            deleteBoard(copyBoard);
+            cout << "Invalid destination position." << endl;
+            Pieces::deleteBoard(copyBoard);
             return true;
         }
 
-        // Scan every square
-        for (int i = 0; i < 8; i++)
+        if ((!color && white_copy->is_check(copyBoard)) || (color && black_copy->is_check(copyBoard)))
         {
-            for (int j = 0; j < 8; j++)
-            {
-                Pieces *p = copyBoard[i][j];
-                if (auto k = dynamic_cast<King *>(p))
-                {
-                    // We found a King; check its color
-                    if (k->colour == 0)
-                        white_copy = k;
-                    else /* k->colour == 1 */
-                        black_copy = k;
-                }
-            }
-        }
-
-        if ((!color && white_copy->is_check(copyBoard, white_copy->position)) || (color && black_copy->is_check(copyBoard, black_copy->position)))
-        {
-            p->position = {curr_X, curr_Y};
-            p->is_first_move = is_first_move;
-            p->is_last_square_move = is_last_square_move;
-            copyBoard[curr_X][curr_Y] = p;
-
-            new_piece->alive = isAlive;
-            new_piece->position = {curr_X, curr_Y};
-            new_piece->is_first_move = is_first_move;
-            new_piece->is_last_square_move = is_last_square_move;
-            copyBoard[new_X][new_Y] = new_piece;
-
-            // if (white_copy->is_checkmate(copyBoard))
-            // {
-            //     string ans = (color == 0) ? "White" : "Black";
-            //     cout << "Oh no, " << ans << " is loser...........!!" << endl;
-            //     return false;
-            // }
-            cout << "Opps...!! there is a check due to invalid move" << endl;
-            deleteBoard(copyBoard);
+            cout << "Invalid move due to introducing check." << endl;
+            Pieces::deleteBoard(copyBoard);
             return true;
         }
         // Actual move
+
+        cout << "Moving piece from (" << curr_X << "," << curr_Y
+             << ") to (" << new_X << "," << new_Y << ").\n";
         p = chessBoard[curr_X][curr_Y];
 
         new_piece = chessBoard[new_X][new_Y];
@@ -1826,13 +1855,13 @@ public:
 
         print_chessboard();
         color = !color;
-        deleteBoard(copyBoard);
+        Pieces::deleteBoard(copyBoard);
         return true;
     }
 
     ~Chess()
     {
-        deleteBoard(chessBoard);
+        Pieces::deleteBoard(chessBoard);
         delete white_king;
         delete black_king;
     }
@@ -1840,8 +1869,9 @@ public:
 
 int main()
 {
-    // Programmed by By PARTH;
+    // Programmed by By Parth Sorathiya;
     Chess c;
     c.print_chessboard();
-    while (c.turns());
+    while (c.turns())
+        ;
 }
